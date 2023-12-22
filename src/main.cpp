@@ -24,19 +24,27 @@ Project is written for an M5Stack Core S3 device and is a simple GUI for an elec
 
 #include <Wire.h> // Used to initialize and control devices on I2C bus
 
+#include <WiFi.h> // Used to create a connection to your wifi
+
 /////////////////////////////////////////////   DECLARATIONS   /////////////////////////////////////////////////////
+
+const char *ssid = "CSL12ProMax";     // Your Wi-Fi SSID
+const char *password = "seahawks!"; // Your Wi-Fi password
+int wifiTimeout = 10000; // 10 seconds timeout
+unsigned long wifiStartTime;
 
 // These variables are for holding the touch position data for the X and Y coordinates // 
 int touchedX = 0; 
-int touchedY = 0; 
+int touchedY = 0;
 
-// These are for the touchscreen dimensions. It makes it easier to do some functions using // 
+// These are for the touchscreen dimensions. It makes it easier to do some functions using variables vice numbers // 
 static const uint16_t screenWidth = 320;
 static const uint16_t screenHeight = 240;
 
 // This part establishes a buffer for our display using LVGL
 static lv_disp_draw_buf_t draw_buf;
 static lv_color_t buf[screenWidth * screenHeight / 10];
+
 
 // These are LVGL object declarations. Like a placeholder telling the computer "you are gonna use them soon so
 // learn their names now so you arent confused later when I tell you to use them".
@@ -53,6 +61,9 @@ lv_obj_t *scrtrp;
 lv_obj_t *img_trp;
 lv_obj_t *scrnav;
 lv_obj_t *img_nav;
+lv_obj_t *lbl_m5bat;
+
+
 
 // These are LVGL image declarations. If you are using images in C arrays, you will need these.
 LV_IMG_DECLARE(bg_spd);
@@ -73,7 +84,46 @@ void load_scrnav();
 void load_scrtrp();
 void load_scrspd();
 
+
 /////////////////////////////////////////////   FUNCTIONS   /////////////////////////////////////////////////////
+
+void connectToWiFi() {
+  WiFi.begin(ssid, password);
+  Serial.print("Connecting to Wi-Fi");
+  M5.Display.setCursor(45, 120);
+  M5.Display.setTextSize(2);
+  M5.Display.print("Connecting to Wi-Fi");
+
+  wifiStartTime = millis(); // Record the start time
+
+  while (WiFi.status() != WL_CONNECTED && (millis() - wifiStartTime) < wifiTimeout) {
+    delay(1000);
+    Serial.print(".");
+    M5.Display.setCursor(45,140);
+    M5.Display.print(".");
+    delay(100);
+    M5.Display.setCursor(47,140);
+    M5.Display.print(".");
+  }
+
+  if (WiFi.status() == WL_CONNECTED) {
+    Serial.println("\nConnected to Wi-Fi");
+    M5.Display.clear();
+    M5.Display.setCursor(100, 120);
+    M5.Display.setTextSize(2);
+    M5.Display.print("Connected!");
+    delay(2000);
+  } else {
+    Serial.println("\nWi-Fi connection timed out");
+    M5.Display.clear();
+    M5.Display.setCursor(45, 120);
+    M5.Display.setTextSize(2);
+    M5.Display.print("Connection Failed");
+    delay(2000);
+    exit; // Handle the case when Wi-Fi connection fails (e.g., continue without Wi-Fi)
+  }
+}
+
 
 // This is a callback function. Tells program what to do when battery button is pressed.
 void cb_butbat(lv_event_t *event) {
@@ -90,8 +140,8 @@ void cb_butspd(lv_event_t *event) {
     Serial.println("Speed button clicked!");
     if (!scrspd) {// 
         M5.Speaker.setVolume(25);
-        M5.Speaker.tone(4000, 5, 1, false);
-        M5.Speaker.tone(2000, 5, 1, false);
+        M5.Speaker.tone(4000, 5, 1, false); // Makes a beep tone when button is pressed
+        M5.Speaker.tone(2000, 5, 1, false); // Makes a beep tone when button is pressed
         load_scrspd(); 
     }
 }
@@ -100,8 +150,8 @@ void cb_buttrp(lv_event_t *event) {
     Serial.println("Trip button clicked!");
     if (!scrtrp) {
         M5.Speaker.setVolume(25);
-        M5.Speaker.tone(4000, 5, 1, false);
-        M5.Speaker.tone(2000, 5, 1, false);
+        M5.Speaker.tone(4000, 5, 1, false); // Makes a beep tone when button is pressed
+        M5.Speaker.tone(2000, 5, 1, false); // Makes a beep tone when button is pressed
         load_scrtrp(); 
     }
 }
@@ -110,8 +160,8 @@ void cb_butnav(lv_event_t *event) {
     Serial.println("Navigation button clicked!");
     if (!scrnav) {
         M5.Speaker.setVolume(25);
-        M5.Speaker.tone(4000, 5, 1, false);
-        M5.Speaker.tone(2000, 5, 1, false);
+        M5.Speaker.tone(4000, 5, 1, false); // Makes a beep tone when button is pressed
+        M5.Speaker.tone(2000, 5, 1, false); // Makes a beep tone when button is pressed
         load_scrnav();
     }
 }
@@ -121,8 +171,8 @@ void cb_butback(lv_event_t *event) {
 
     if (current_screen != NULL) {
         M5.Speaker.setVolume(25);
-        M5.Speaker.tone(4000, 5, 1, false);
-        M5.Speaker.tone(2000, 5, 1, false);
+        M5.Speaker.tone(4000, 5, 1, false); // Makes a beep tone when button is pressed
+        M5.Speaker.tone(2000, 5, 1, false); // Makes a beep tone when button is pressed
         lv_obj_clean(current_screen);
 
         // Reset screen references if needed
@@ -205,12 +255,12 @@ void load_scrhome() {
     buttrp = lv_imgbtn_create(scrhome);
     butnav = lv_imgbtn_create(scrhome);
 
-    lv_obj_set_pos(butbat, 20, 90); // Sets the positions of the buttons
+    lv_obj_set_pos(butbat, 20, 90); // Sets the positions of the buttons and label
     lv_obj_set_pos(butspd, 95, 90);
     lv_obj_set_pos(buttrp, 165, 90);
     lv_obj_set_pos(butnav, 240, 90);
 
-    lv_obj_set_height(butbat, 60); // Sets the Height and width of buttons
+    lv_obj_set_height(butbat, 60); // Sets the Height and width of buttons and label
     lv_obj_set_width(butbat, 60);
     lv_obj_set_height(butspd, 60);
     lv_obj_set_width(butspd, 60);
@@ -218,12 +268,12 @@ void load_scrhome() {
     lv_obj_set_width(buttrp, 60);
     lv_obj_set_height(butnav, 60);
     lv_obj_set_width(butnav, 60);
-
+   
     lv_img_set_src(butbat, &but_bat); // Sets the image source for the buttons (I drew my own)
     lv_img_set_src(butspd, &but_spd);
     lv_img_set_src(buttrp, &but_trp);
     lv_img_set_src(butnav, &but_nav);
-
+    
     lv_obj_add_event_cb(butbat, cb_butbat, LV_EVENT_CLICKED, NULL); // Add the callbacks to the 
     lv_obj_add_event_cb(butspd, cb_butspd, LV_EVENT_CLICKED, NULL); // buttons so that they 
     lv_obj_add_event_cb(buttrp, cb_buttrp, LV_EVENT_CLICKED, NULL); // actually do something.
@@ -294,7 +344,12 @@ void load_scrnav() {
     lv_obj_set_height(butback, 60);
     lv_obj_set_width(butback, 60);
     lv_scr_load_anim(scrnav, LV_SCR_LOAD_ANIM_FADE_IN, 150, 0, true);
+
+
+
 }
+
+
 
 /////////////////////////////////////////////   SETUP   /////////////////////////////////////////////////////
 
@@ -304,6 +359,7 @@ void setup() {
                 // but if you dont know, just do it this way. (I was lazy, had it the right way and accidently deleted)
     Serial.begin(115200); // Initialize the serial port to output your data from the "serial print" statements.
     M5.Speaker.setVolume(25); // Kinda self explanatory
+    connectToWiFi(); // Connect to Wi-Fi
     lv_init(); // Initialize LVGL. Make sure you do this after initializing the M5 device itself.
     lv_disp_draw_buf_init(&draw_buf, buf, NULL, screenWidth * screenHeight / 10); // Initialize the buffer we made
     lv_disp_drv_t *disp_drv = (lv_disp_drv_t *)malloc(sizeof(lv_disp_drv_t)); // Allocate memory for the display use
@@ -322,6 +378,7 @@ void setup() {
     Wire.begin(sdaPin, sclPin);
 
     load_scrhome(); // Load the initial home screen
+   
 }
 
 /////////////////////////////////////////////   MAIN LOOP   /////////////////////////////////////////////////////
@@ -330,4 +387,5 @@ void loop() {
     M5.update(); // Function to update the M5 Stack regularly
     tch(); // Custom function to monitor and handle touch input
     lv_task_handler(); // Function that handles LVGL tasks
+    
 }
